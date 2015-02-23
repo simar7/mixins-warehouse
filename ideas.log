@@ -1,0 +1,45 @@
+++ to simar for thinking about this while doing math :)
+
+Potential candidates to start with:
+Spider Monkey builds: VirtualenvMixin
+Luciddream harness: TestingMixin, VCSMixin, MozbaseMixin, BaseScript
+
+LogMixin
+* if removed, we can do things like `import proxxy`  and use proxxy without passing it self.log_obj
+** "log = logging.getLogger(__name__)"
+** LOG = logging.getLogger()
+
+to solve self.config, I'd make config a global
+* WARNING: using global can be a bit dangerous
+
+Relevant bugs mentioned in the meeting:
+https://bugzilla.mozilla.org/show_bug.cgi?id=1063532 (proxxy)
+https://bugzilla.mozilla.org/show_bug.cgi?id=1113174 (spidermonkey)
+https://bugzilla.mozilla.org/show_bug.cgi?id=1128099 (luciddream)
+
+
+Bug tracker created to follow mixin elimination: 
+https://bugzilla.mozilla.org/show_bug.cgi?id=1101183
+
+Possible end up scenarios:
+1st pri: move to: mozharness/lib/python
+2nd pri: packages
+mozharness/lib/python/vendors (if external vendors)
+
+possibly
+each module/package would inherit from BaseScript (and other base classes as required)
+they do not need self.config (they will have their own configuration which could be passed from self.config as python dicts):
+`import proxxy; proxxy.get_proxxy_config(self.config['proxxy_server']) # or whatever`
+drop passing self.log_obj and use python's built in logging or mozlog if suitable.
+
+part 1
+giving current mixxins the 'proxxy' treatment, I think is  a great first step
+https://bugzil.la/1063532 (proxxy)
+this means we will still pass self.log_obj (for now) so we can do logging
+as it will remove all the self attrs that are inherited from mixins and attach them to isolated objects:
+self.buildbot.buildbot_method(). then (for part 2) you can just s/self.buildbot.buildbot_method()/import buildbot; buildbot.buildbot_method()
+buildbot is currently a mixin in mozharness and just an example
+
+part 2
+proxxy is a good candidate for part 2: turning isolated objects into packages
+for part 2 we need to figure out logging
