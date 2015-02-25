@@ -1,3 +1,29 @@
+#!/usr/bin/env python
+# ***** BEGIN LICENSE BLOCK *****
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this file,
+# You can obtain one at http://mozilla.org/MPL/2.0/.
+# ***** END LICENSE BLOCK *****
+
+import os
+import re
+import sys
+import logging
+
+try:
+    import simplejson as json
+    assert json
+except ImportError:
+    import json
+
+sys.path.insert(1, os.path.dirname(sys.path[0]))
+
+from mozharness.base.config import parse_config_file
+from mozharness.base.log import INFO, WARNING, ERROR
+
+# use mozhnarness log
+mhlog = logging.getLogger('Multi')
+
 # BuildbotMixin {{{1
 
 TBPL_SUCCESS = 'SUCCESS'
@@ -32,19 +58,19 @@ class BuildbotMixin(object):
         c = self.config
         if not c.get("buildbot_json_path"):
             # If we need to fail out, add postflight_read_buildbot_config()
-            self.info("buildbot_json_path is not set.  Skipping...")
+            mhlog(INFO, msg="buildbot_json_path is not set.  Skipping...")
         else:
             # TODO try/except?
             self.buildbot_config = parse_config_file(c['buildbot_json_path'])
-            self.info("Using buildbot properties:")
-            self.info(json.dumps(self.buildbot_config, indent=4))
+            mhlog(INFO, msg="Using buildbot properties:")
+            mhlog(INFO, msg="%s" % json.dumps(self.buildbot_config, indent=4))
 
     def tryserver_email(self):
         pass
 
     def buildbot_status(self, tbpl_status, level=None, set_return_code=True):
         if tbpl_status not in TBPL_STATUS_DICT:
-            self.error("buildbot_status() doesn't grok the status %s!" % tbpl_status)
+            mhlog(ERROR, msg="buildbot_status() doesn't grok the status %s!" % tbpl_status)
         else:
             # Set failure if our log > buildbot_max_log_size (bug 876159)
             if self.config.get("buildbot_max_log_size") and self.log_obj:
@@ -57,19 +83,19 @@ class BuildbotMixin(object):
                 if os.path.exists(log_file):
                     file_size = os.path.getsize(log_file)
                     if file_size > self.config['buildbot_max_log_size']:
-                        self.error("Log file size %d is greater than max allowed %d! Setting TBPL_FAILURE (was %s)..." % (file_size, self.config['buildbot_max_log_size'], tbpl_status))
+                        mhlog(ERROR, msg="Log file size %d is greater than max allowed %d! Setting TBPL_FAILURE (was %s)..." % (file_size, self.config['buildbot_max_log_size'], tbpl_status))
                         tbpl_status = TBPL_FAILURE
             if not level:
                 level = TBPL_STATUS_DICT[tbpl_status]
             self.worst_buildbot_status = self.worst_level(tbpl_status, self.worst_buildbot_status, TBPL_WORST_LEVEL_TUPLE)
             if self.worst_buildbot_status != tbpl_status:
-                self.info("Current worst status %s is worse; keeping it." % self.worst_buildbot_status)
+                mhlog(INFO, msg="Current worst status %s is worse; keeping it." % self.worst_buildbot_status)
             self.add_summary("# TBPL %s #" % self.worst_buildbot_status, level=level)
             if set_return_code:
                 self.return_code = EXIT_STATUS_DICT[self.worst_buildbot_status]
 
     def set_buildbot_property(self, prop_name, prop_value, write_to_file=False):
-        self.info("Setting buildbot property %s to %s" % (prop_name, prop_value))
+        mhlog(INFO, msg="Setting buildbot property %s to %s" % (prop_name, prop_value))
         self.buildbot_properties[prop_name] = prop_value
         if write_to_file:
             return self.dump_buildbot_properties(prop_list=[prop_name], file_name=prop_name)
@@ -103,12 +129,12 @@ class BuildbotMixin(object):
             self.mkdir_p(dir_name)
         if not prop_list:
             prop_list = self.buildbot_properties.keys()
-            self.info("Writing buildbot properties to %s" % file_name)
+            mhlog(INFO, msg="Writing buildbot properties to %s" % file_name)
         else:
             if not isinstance(prop_list, (list, tuple)):
-                self.log("dump_buildbot_properties: Can't dump non-list prop_list %s!" % str(prop_list), level=error_level)
+                mhlog(error_level, msg=("dump_buildbot_properties: Can't dump non-list prop_list %s!" % str(prop_list)))
                 return
-            self.info("Writing buildbot properties %s to %s" % (str(prop_list), file_name))
+            mhlog(INFO, msg=("Writing buildbot properties %s to %s" % (str(prop_list), file_name)))
         contents = ""
         for prop in prop_list:
             contents += "%s:%s\n" % (prop, self.buildbot_properties.get(prop, "None"))
@@ -155,4 +181,4 @@ class BuildbotMixin(object):
 
         retcode = self.run_command(buildbot + sendchange)
         if retcode != 0:
-            self.info("The sendchange failed but we don't want to turn the build orange: %s" % retcode)
+            mhlog(INFO, msg=("The sendchange failed but we don't want to turn the build orange: %s" % retcode))
