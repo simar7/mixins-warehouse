@@ -22,7 +22,7 @@ from mozharness.base.config import parse_config_file
 from mozharness.base.log import INFO, WARNING, ERROR
 
 # use mozhnarness log; bug 1130336
-mhlog = logging.getLogger('Multi')
+mhlog = logging.getLogger()
 
 # BuildbotMixin {{{1
 

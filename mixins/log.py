@@ -21,10 +21,11 @@ import traceback
 FATAL_LEVEL = logging.CRITICAL + 10
 logging.addLevelName(FATAL_LEVEL, 'FATAL')
 
-# mozharness log levels.
 DEBUG, INFO, WARNING, ERROR, CRITICAL, FATAL, IGNORE = (
-    'debug', 'info', 'warning', 'error', 'critical', 'fatal', 'ignore')
+    logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR,
+    logging.CRITICAL, logging.FATAL, logging.NOTSET)
 
+ROOT_LOGGER = logging.getLogger()
 
 # LogMixin {{{1
 class LogMixin(object):
@@ -260,7 +261,7 @@ class BaseLogger(object):
                          os.getcwd()))
 
     def get_logger_size(self):
-        log_file = os.path.join(self.abs_log_dir, self.logger_name)
+        log_file = os.path.join(self.abs_log_dir, '%s.log' % self.log_name)
         return os.path.getsize(log_file)
 
     def get_logger_level(self, level=None):
@@ -279,7 +280,7 @@ class BaseLogger(object):
         """Create a new logger.
         By default there are no handlers.
         """
-        self.logger = logging.getLogger(logger_name)
+        self.logger = ROOT_LOGGER
         self.logger.setLevel(self.get_logger_level())
         self._clear_handlers()
         if self.log_to_console:
@@ -379,6 +380,10 @@ class MultiFileLogger(BaseLogger):
 
         self.new_logger(self.logger_name)
         self.init_message()
+
+    def get_logger_size(self, level=INFO):
+        log_file = os.path.join(self.abs_log_dir, '%s_%s.log' % self.log_name, level)
+        return os.path.getsize(log_file)
 
     def new_logger(self, logger_name):
         BaseLogger.new_logger(self, logger_name)
